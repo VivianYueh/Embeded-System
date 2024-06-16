@@ -1,0 +1,280 @@
+C51 COMPILER V7.08   FINAL                                                                 06/04/2024 11:00:32 PAGE 1   
+
+
+C51 COMPILER V7.08, COMPILATION OF MODULE FINAL
+OBJECT MODULE PLACED IN Final.OBJ
+COMPILER INVOKED BY: D:\Keil\C51\BIN\C51.EXE Final.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include<reg52.h> //包含標頭檔，一般情況不需要改動，標頭檔包含特殊功能寄存器的定義 
+   2          #include <string.h>                       
+   3          #define MAX 10
+   4          #define DataPort P0 //定義資料埠 程式中遇到DataPort 則用P0 替換
+   5          typedef unsigned char byte;
+   6          typedef unsigned int  word;
+   7          
+   8          byte buf[MAX];
+   9          byte head = 0;
+  10          
+  11          byte get_0d = 0;
+  12          byte rec_flag = 0;
+  13          sbit k1 = P1^0;
+  14          sbit k2 = P1^1;
+  15          sbit LATCH1=P2^2;//定義鎖存使能埠 段鎖存
+  16          sbit LATCH2=P2^3;//                 位鎖存
+  17          
+  18          unsigned char code dofly_DuanMa[]={0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x07,0x7f,0x6f,
+  19                                                           0x77,0x7c,0x39,0x5e,0x79,0x71,0x54,0x79};// 顯示段碼值0~F
+  20          unsigned char code dofly_WeiMa[]={0xfe,0xfd,0xfb,0xf7,0xef,0xdf,0xbf,0x7f};//分別對應相應的數碼管點亮,即位
+             -碼
+  21          
+  22          unsigned char TempData[10]; //存儲顯示值的全域變數
+  23          unsigned char Ans[5];
+  24          unsigned char g[5];
+  25          void Display(unsigned char FirstBit,unsigned char Num);//數碼管顯示函數
+  26          void DelayUs2x(unsigned char t);//us級延時函式宣告 
+  27          void DelayMs(unsigned char t); //ms級延時
+  28          void delay(unsigned char t);
+  29          void Song(void);
+  30          /*------------------------------------------------
+  31                             函式宣告
+  32          ------------------------------------------------*/
+  33          void SendStr(unsigned char *s);
+  34          
+  35          /*------------------------------------------------
+  36                              串口初始化
+  37          ------------------------------------------------*/
+  38          void InitUART  (void)
+  39          {
+  40   1      
+  41   1          SCON  = 0x50;                       // SCON: 模式 1, 8-bit UART, 使能接收  
+  42   1          TMOD |= 0x21;               // TMOD: timer 1, mode 2, 8-bit 重裝,timer 0 , mode 1
+  43   1          TH1   = 0xFD;               // TH1:  重裝值 9600 串列傳輸速率 晶振 11.0592MHz  
+  44   1          TR1   = 1;                  // TR1:  timer 1 打開                         
+  45   1          EA    = 1;                  //打開總中斷
+  46   1              ET0=1;           //計時器中斷打開
+  47   1              TR0=1;           //計時器開關打開
+  48   1         // ES    = 1;                  //打開串口中斷
+  49   1      }                            
+  50          /*------------------------------------------------
+  51                              主函數
+  52          ------------------------------------------------*/
+  53          void main (void)
+  54          {
+C51 COMPILER V7.08   FINAL                                                                 06/04/2024 11:00:32 PAGE 2   
+
+  55   1      bit set=0;
+  56   1      unsigned char j,a,b;
+  57   1      word i;
+  58   1      InitUART();
+  59   1      SendStr("UART test，技術論壇：www.doflye.net 請在發送區輸入任意資訊\r\n");
+  60   1      ES    = 1;                  //打開串口中斷
+  61   1                      while (1)                       
+  62   1                          {
+  63   2                                              if (rec_flag == 1)
+  64   2                                              { 
+  65   3                                                      buf[head] = '\0';
+  66   3                                                      rec_flag = 0;
+  67   3                                                      head = 0;
+  68   3                                                      if(buf[0]=='s'){        //設置答案
+  69   4                                                              for(j=0;j<4;j++){
+  70   5                                                                      Ans[j]=buf[j+1]-'0';
+  71   5                                                              }
+  72   4                                                              SendStr("HELLO SHIN\r\n");
+  73   4                                                      }
+  74   3                                                      else if(buf[0]=='g'){   //讀取猜測
+  75   4                                                              a=0;
+  76   4                                                              b=0;
+  77   4                                                              g[0]=buf[1]-'0';
+  78   4                                                              g[1]=buf[2]-'0';
+  79   4                                                              g[2]=buf[3]-'0';
+  80   4                                                              g[3]=buf[4]-'0';
+  81   4                                                              TempData[0]=dofly_DuanMa[g[0]];
+  82   4                                                              TempData[1]=dofly_DuanMa[g[1]];
+  83   4                                                              TempData[2]=dofly_DuanMa[g[2]];
+  84   4                                                              TempData[3]=dofly_DuanMa[g[3]];
+  85   4                                                              SendStr("DOIT SHIN\r\n");
+  86   4      
+  87   4                                                              if(g[0]==Ans[0])        a++;
+  88   4                                                              else if(g[0]==Ans[1]||g[0]==Ans[2]||g[0]==Ans[3])       b++;
+  89   4      
+  90   4                                                              if(g[1]==Ans[1])        a++;
+  91   4                                                              else if(g[1]==Ans[0]||g[1]==Ans[2]||g[1]==Ans[3])       b++;
+  92   4      
+  93   4                                                              if(g[2]==Ans[2])        a++;
+  94   4                                                              else if(g[2]==Ans[0]||g[2]==Ans[1]||g[2]==Ans[3])       b++;
+  95   4      
+  96   4                                                              if(g[3]==Ans[3])        a++;
+  97   4                                                              else if(g[3]==Ans[0]||g[3]==Ans[1]||g[3]==Ans[2])       b++;
+  98   4      
+  99   4                                                              if(a==4){
+ 100   5                                                                      TempData[4]=dofly_DuanMa[13];
+ 101   5                                                                      TempData[5]=dofly_DuanMa[0];
+ 102   5                                                                      TempData[6]=dofly_DuanMa[16];
+ 103   5                                                                      TempData[7]=dofly_DuanMa[14];
+ 104   5                                                                      SendStr("Finish\r\n");
+ 105   5                                                              }
+ 106   4                                                              else{
+ 107   5                                                                      TempData[4]=dofly_DuanMa[a];    //幾個A
+ 108   5                                                                      TempData[5]=dofly_DuanMa[10];
+ 109   5                                                                      TempData[6]=dofly_DuanMa[b];    //幾個B
+ 110   5                                                                      TempData[7]=dofly_DuanMa[11];
+ 111   5                                                              }
+ 112   4                                                              //Display(0,8);
+ 113   4                                                      }
+ 114   3                                                      
+ 115   3                                                      /*if (strcmp(buf,"HELLO") == 0)
+ 116   3                                                      {
+C51 COMPILER V7.08   FINAL                                                                 06/04/2024 11:00:32 PAGE 3   
+
+ 117   3                                                              SendStr("HELLO SHIN\r\n");
+ 118   3      
+ 119   3                                                      }
+ 120   3                                                      else if (strcmp(buf,"DOIT") == 0)
+ 121   3                                                      {
+ 122   3                                                              SendStr("DOIT SHIN\r\n");
+ 123   3                                                      }
+ 124   3                                                      else                                            
+ 125   3                                                      {
+ 126   3                                                              SendStr(buf);
+ 127   3                                                              SendStr("\r\n");
+ 128   3                                                      }               */                              
+ 129   3                                              }
+ 130   2                                              if (k1 == 0)    //重置
+ 131   2                                              {
+ 132   3                                                      for(i=0;i<2000;i++);
+ 133   3                                                      if(k1==0)       SendStr("Reset");
+ 134   3                                                      while(k1 == 0);
+ 135   3                                                      for(i=0;i<2000;i++);
+ 136   3                                                      for(j=0;j<8;j++)        TempData[j]=0;
+ 137   3                                                      Display(0,8);
+ 138   3                                              }
+ 139   2                                              
+ 140   2                              
+ 141   2                          }
+ 142   1      }
+ 143          
+ 144          /*------------------------------------------------
+ 145                              發送一個位元組
+ 146          ------------------------------------------------*/
+ 147          void SendByte(unsigned char dat)
+ 148          {
+ 149   1       SBUF = dat;
+ 150   1       while(!TI);
+ 151   1            TI = 0;
+ 152   1      }
+ 153          /*------------------------------------------------
+ 154                              發送一個字串
+ 155          ------------------------------------------------*/
+ 156          void SendStr(unsigned char *s)
+ 157          {
+ 158   1       while(*s!='\0')// \0 表示字串結束標誌，通過檢測是否字串末尾
+ 159   1        {
+ 160   2        SendByte(*s);
+ 161   2        s++;
+ 162   2        }
+ 163   1      }
+ 164          /*------------------------------------------------
+ 165                               串口中斷程式
+ 166          ------------------------------------------------*/
+ 167          void UART_SER (void) interrupt 4 //串列中斷服務程式
+ 168          {
+ 169   1          unsigned char tmp;          //定義臨時變數 
+ 170   1         
+ 171   1         if(RI)                        //判斷是接收中斷產生
+ 172   1           {
+ 173   2                              RI=0;                      //標誌位元清零
+ 174   2                              tmp=SBUF;                 //讀入緩衝區的值
+ 175   2                              if (get_0d == 0)
+ 176   2                              {
+ 177   3                                              if (tmp == 0x0d) get_0d = 1;
+ 178   3                                              else
+C51 COMPILER V7.08   FINAL                                                                 06/04/2024 11:00:32 PAGE 4   
+
+ 179   3                                              {
+ 180   4                                                      buf[head]=tmp;              
+ 181   4                                                      head++;
+ 182   4                                                      if (head == MAX) head = 0;      
+ 183   4                                              }
+ 184   3                                                                   
+ 185   3                              }
+ 186   2                              else if (get_0d == 1)
+ 187   2                              {
+ 188   3                                      if (tmp != 0x0a)
+ 189   3                                      {
+ 190   4                                                      head = 0;
+ 191   4                                                      get_0d = 0;
+ 192   4                                                      
+ 193   4                                      }
+ 194   3                                      else
+ 195   3                                      {
+ 196   4                                              rec_flag = 1;
+ 197   4                                              get_0d = 0;
+ 198   4                                      }
+ 199   3                              }       
+ 200   2                              
+ 201   2                      
+ 202   2                      //      SBUF=tmp;                 //把接收到的值再發回電腦端
+ 203   2               }
+ 204   1      //   if(TI)                        //如果是發送標誌位元，清零
+ 205   1      //     TI=0;
+ 206   1      } 
+ 207          
+ 208          /*------------------------------------------------
+ 209           顯示函數，用於動態掃瞄數碼管
+ 210           輸入參數 FirstBit 表示需要顯示的第一位，如賦值2表示從第三個數碼管開始顯示
+ 211           如輸入0表示從第一個顯示。
+ 212           Num表示需要顯示的位元數，如需要顯示99兩位元數值則該值輸入2
+ 213          ------------------------------------------------*/
+ 214          void Display(unsigned char FirstBit,unsigned char Num)
+ 215          {
+ 216   1            static unsigned char i=0;
+ 217   1                
+ 218   1      
+ 219   1                 DataPort=0;   //清空資料，防止有交替重影
+ 220   1             LATCH1=1;     //段鎖存
+ 221   1             LATCH1=0;
+ 222   1      
+ 223   1             DataPort=dofly_WeiMa[i+FirstBit]; //取位碼 
+ 224   1             LATCH2=1;     //位鎖存
+ 225   1             LATCH2=0;
+ 226   1      
+ 227   1             DataPort=TempData[i]; //取顯示資料，段碼
+ 228   1             LATCH1=1;     //段鎖存
+ 229   1             LATCH1=0;
+ 230   1             
+ 231   1                 i++;
+ 232   1             if(i==Num)
+ 233   1                    i=0;
+ 234   1      
+ 235   1      
+ 236   1      }
+ 237          
+ 238          /*------------------------------------------------
+ 239                           計時器中斷副程式
+ 240          ------------------------------------------------*/
+C51 COMPILER V7.08   FINAL                                                                 06/04/2024 11:00:32 PAGE 5   
+
+ 241          void Timer0_isr(void) interrupt 1 
+ 242          {
+ 243   1       TH0=(65536-2000)/256;            //重新賦值 2ms
+ 244   1       TL0=(65536-2000)%256;
+ 245   1       
+ 246   1       Display(0,8);       // 調用數碼管掃瞄
+ 247   1      
+ 248   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    633    ----
+   CONSTANT SIZE    =    127    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     34       5
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
